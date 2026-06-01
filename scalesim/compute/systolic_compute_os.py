@@ -60,6 +60,11 @@ class systolic_compute_os:
         self.prefetch_mat_ready_flag = False
         self.demand_mat_ready_flag = False
 
+        self.dead_row_indices = []
+        self.dead_row = 0
+        self.dead_col_indices = []
+        self.dead_col = 0
+
     #
     def set_params(self,
                    config_obj=cfg(),
@@ -90,6 +95,11 @@ class systolic_compute_os:
 
         self.row_fold = math.ceil(self.Sr / self.arr_row)
         self.col_fold = math.ceil(self.Sc / self.arr_col)
+
+        self.dead_row_indices = self.config.dead_row_index
+        self.dead_col_indices = self.config.dead_col_index
+        self.dead_row = len(self.dead_row_indices)
+        self.dead_col = len(self.dead_col_indices)
 
         self.params_set_flag = True
 
@@ -242,14 +252,16 @@ class systolic_compute_os:
         self.create_ifmap_demand_mat()
         self.create_filter_demand_mat()
         self.create_ofmap_demand_mat()
-
+        print(self.ifmap_demand_matrix.shape)
+        print(self.filter_demand_matrix.shape)
+        print(self.ofmap_demand_matrix.shape)
         assert self.ifmap_demand_matrix.shape[0] == self.filter_demand_matrix.shape[0], \
                'IFMAP and Filter demands out of sync'
         assert self.ofmap_demand_matrix.shape[0] == self.filter_demand_matrix.shape[0], \
                'OFMAP and Filter demands out of sync'
-        assert self.ifmap_demand_matrix.shape[1] == self.arr_row, 'IFMAP demands exceed the rows'
-        assert self.filter_demand_matrix.shape[1] == self.arr_col,'Filter demands exceed the cols'
-        assert self.ofmap_demand_matrix.shape[1] == self.arr_col, 'OFMAP demands exceed the cols'
+        assert self.ifmap_demand_matrix.shape[1] == self.arr_row + self.dead_row, 'IFMAP demands exceed the rows'
+        assert self.filter_demand_matrix.shape[1] == self.arr_col + self.dead_col,'Filter demands exceed the cols'
+        assert self.ofmap_demand_matrix.shape[1] == self.arr_col + self.dead_col, 'OFMAP demands exceed the cols'
 
         self.demand_mat_ready_flag = True
 
@@ -261,8 +273,8 @@ class systolic_compute_os:
         assert self.params_set_flag, 'Parameters are not set'
 
         # Anand: Concatenation issue fix
-        inter_fold_gap_suffix = self.arr_col - 1
-        inter_fold_gap_suffix_mat = np.ones((inter_fold_gap_suffix, self.arr_row)) * -1
+        inter_fold_gap_suffix = self.arr_col + self.dead_col - 1
+        inter_fold_gap_suffix_mat = np.ones((inter_fold_gap_suffix, self.arr_row + self.dead_row)) * -1
 
         # DEBUG section
         #print('DEBUG: create_ifmap_demand_mat()')
@@ -283,16 +295,19 @@ class systolic_compute_os:
                 if delta > 0:
                     null_req_mat = np.ones((self.T, delta)) * -1
                     this_fold_demand = np.concatenate((this_fold_demand, null_req_mat), axis=1)
-
+                
+                for dr in self.dead_row_indices:
+                    this_fold_demand = np.insert(this_fold_demand, dr, -1, axis=1)
+                
                 # In this computation scheme we are allowing the generated outputs to drain out
                 # before starting the next fold
                 # This portion accounts for that extra time by adding null requests
                 this_fold_demand = np.concatenate((this_fold_demand, inter_fold_gap_suffix_mat),
                                                   axis=0)
-
+                
                 # Add skew to the IFMAP demand matrix to reflect systolic pipeline fill
                 this_fold_demand = skew_matrix(this_fold_demand)
-
+                
                 if fr == 0 and fc == 0:
                     self.ifmap_demand_matrix = this_fold_demand
                 else:
@@ -313,8 +328,8 @@ class systolic_compute_os:
         """
         assert self.params_set_flag, 'Parameters are not set'
 
-        inter_fold_gap_suffix = self.arr_row - 1
-        inter_fold_gap_suffix_mat = np.ones((inter_fold_gap_suffix, self.arr_col)) * -1
+        inter_fold_gap_suffix = self.arr_row + self.dead_row - 1
+        inter_fold_gap_suffix_mat = np.ones((inter_fold_gap_suffix, self.arr_col + self.dead_col)) * -1
 
         # Debug messages
         #print('DEBUG: create_filter_demand_mat()')
@@ -333,6 +348,9 @@ class systolic_compute_os:
                 if delta > 0:
                     null_req_mat = np.ones((self.T, delta)) * -1
                     this_fold_demand = np.concatenate((this_fold_demand, null_req_mat), axis=1)
+                
+                for dr in self.dead_col_indices:
+                    this_fold_demand = np.insert(this_fold_demand, dr, -1, axis=1)
 
                 # In this computation scheme we are allowing the generated outputs to drain out
                 # before starting the next fold
@@ -364,7 +382,7 @@ class systolic_compute_os:
         assert self.params_set_flag, 'Parameters are not set'
 
         inter_fold_gap_prefix = self.T  - 1
-        inter_fold_gap_prefix_mat = np.ones((inter_fold_gap_prefix, self.arr_col)) * -1
+        inter_fold_gap_prefix_mat = np.ones((inter_fold_gap_prefix, self.arr_col + self.dead_col)) * -1
 
         # Debug messages
         #print('DEBUG: create_ifmap_demand_mat()')
@@ -393,6 +411,12 @@ class systolic_compute_os:
                 if row_delta > 0:
                     null_req_mat = np.ones((row_delta, self.arr_col)) * -1
                     this_fold_demand = np.concatenate((this_fold_demand, null_req_mat), axis=0)
+                
+                for dr in self.dead_row_indices:
+                    this_fold_demand = np.insert(this_fold_demand, dr, -1, axis=0)
+                
+                for dr in self.dead_col_indices:
+                    this_fold_demand = np.insert(this_fold_demand, dr, -1, axis=1)
 
                 # Reflect along the rows
                 # This is a characteristic of the fact that the outputs are streamed out from the

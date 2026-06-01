@@ -174,6 +174,10 @@ class scalesim:
 
         arr_h, arr_w = self.config.get_array_dims()
         print("Array Size: \t" + str(arr_h) + "x" + str(arr_w))
+        if self.config.dead_row_index:
+            print("Dead rows:", self.config.dead_row_index)
+        if self.config.dead_col_index:
+            print("Dead columns:", self.config.dead_col_index)
 
         ifmap_kb, filter_kb, ofmap_kb = self.config.get_mem_sizes()
         print("SRAM IFMAP (kB): \t" + str(ifmap_kb))

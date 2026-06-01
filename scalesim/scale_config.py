@@ -21,6 +21,8 @@ class scale_config:
 
         self.array_rows = 4
         self.array_cols = 4
+        self.dead_row_index = []
+        self.dead_col_index = []
         self.ifmap_sz_kb = 256
         self.filter_sz_kb = 256
         self.ofmap_sz_kb = 128
@@ -108,6 +110,8 @@ class scale_config:
         section = 'architecture_presets'
         self.array_rows = int(config.get(section, 'ArrayHeight'))
         self.array_cols = int(config.get(section, 'ArrayWidth'))
+        self.dead_row_index = [int(s) for s in config.get(section, 'DeadRows', fallback='').split(',')]
+        self.dead_col_index = [int(s) for s in config.get(section, 'DeadCols', fallback='').split(',')]
         self.ifmap_sz_kb = int(config.get(section, 'ifmapsramszkB'))
         self.filter_sz_kb = int(config.get(section, 'filtersramszkB'))
         self.ofmap_sz_kb = int(config.get(section, 'ofmapsramszkB'))
