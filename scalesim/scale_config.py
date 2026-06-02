@@ -4,6 +4,8 @@ activities such as parsing the config file, writing the parameters into a config
 parameters.
 """
 import configparser as cp
+from math import ceil, floor, sin, cos
+import numpy as np
 
 
 class scale_config:
@@ -110,8 +112,64 @@ class scale_config:
         section = 'architecture_presets'
         self.array_rows = int(config.get(section, 'ArrayHeight'))
         self.array_cols = int(config.get(section, 'ArrayWidth'))
-        self.dead_row_index = [int(s) for s in config.get(section, 'DeadRows', fallback='').split(',')]
-        self.dead_col_index = [int(s) for s in config.get(section, 'DeadCols', fallback='').split(',')]
+
+        defect_method = config.get(section, 'DefectMethod', fallback='uniform')
+
+        if defect_method == 'explicit':
+            self.dead_row_index = [int(s) for s in config.get(section, 'DeadRows', fallback='').split(',')]
+            self.dead_col_index = [int(s) for s in config.get(section, 'DeadCols', fallback='').split(',')]
+
+        else:
+            defect_rate = float(config.get(section, 'DefectRate'))
+            die_size = int(config.get(section, 'DieSize'))
+            n_defects = ceil(defect_rate * die_size)
+
+            # defects appear in a line
+            if defect_method == 'line':
+                length = n_defects
+                theta = np.random.random() * np.pi / 2
+                x = np.random.random() * (self.array_cols - length)
+                y = np.random.random() * (self.array_rows - length)
+                for _ in range(n_defects):
+                    self.dead_col_index.append(floor(x))
+                    self.dead_row_index.append(floor(y))
+                    x += cos(theta)
+                    y += sin(theta)
+                self.dead_row_index = list(set(self.dead_row_index))
+                self.dead_col_index = list(set(self.dead_col_index))
+
+            # defects are clustered in a chunk
+            elif defect_method == 'block':
+                # upper left corner of a square
+                w = min(self.array_cols, ceil(n_defects ** 0.5))
+                h = ceil(n_defects / w)
+                print('w=', w, 'h=', h, 'd=', n_defects)
+                x0 = floor(np.random.random() * (self.array_cols - w))
+                y0 = floor(np.random.random() * (self.array_rows - h))
+
+                self.dead_row_index = list(range(y0, y0 + h))
+                self.dead_col_index = list(range(x0, x0 + w))
+
+            # defects appear as far apart from each other as possible
+            elif defect_method == 'uniform':
+                d = (self.array_rows * self.array_cols) // n_defects
+                for victim in range(d, self.array_rows * self.array_cols, d):
+                    row = victim // self.array_rows
+                    col = victim % self.array_cols
+                    print('row=', victim)
+                    self.dead_row_index.append(row)
+                    self.dead_col_index.append(col)
+                self.dead_row_index = sorted(list(set(self.dead_row_index)))
+                self.dead_col_index = sorted(list(set(self.dead_col_index)))
+
+            else:
+                print("ERROR: Invalid DefectMethod. Expected one of ",
+                      ['explicit', 'block', 'uniform', 'line'])
+                print('Exiting')
+                exit()
+
+
+
         self.ifmap_sz_kb = int(config.get(section, 'ifmapsramszkB'))
         self.filter_sz_kb = int(config.get(section, 'filtersramszkB'))
         self.ofmap_sz_kb = int(config.get(section, 'ofmapsramszkB'))
