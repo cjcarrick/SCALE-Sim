@@ -202,6 +202,43 @@ class simulator:
         header += 'DRAM OFMAP Start Cycle, DRAM OFMAP Stop Cycle, DRAM OFMAP Writes,\n'
         detail_report.write(header)
 
+        fault_map_name = self.top_path + '/FAULT_MAP.ppm'
+        fault_map = open(fault_map_name, 'wb')
+        rows, cols = self.conf.get_array_dims()
+        # pixel width of each MAC and the gaps around the MACs
+        sgap, smac = 1, 4
+        ppmw = cols * smac + (cols + 1) * sgap
+        ppmh = rows * smac + (rows + 1) * sgap
+        fault_map.write(bytes("P6\n%d %d\n255\n" % (ppmw, ppmh), 'ASCII'))
+
+        gaprow = bytes(0xff for _ in range(sgap * 3 * ppmw))
+        gapcol = bytes(0xff for _ in range(sgap * 3))
+        _ = fault_map.write(gaprow)
+        for y in range(rows):
+            badrow = y in self.conf.dead_row_index
+
+            row = bytes(gapcol)
+            for x in range(cols):
+                badcol = x in self.conf.dead_col_index
+                badmac = badrow and badcol and ([x, y] in self.conf.dead_pes)
+                color = 0xcccccc
+                if badmac:
+                    color = 0xaf26d9 #af26d9
+                elif badrow or badcol:
+                    color = 0xdfa8f0 #dfa8f0
+                for _ in range(smac):
+                    row += bytes([
+                        ((color & 0xFF0000) >> 16),
+                        ((color & 0x00FF00) >>  8),
+                        ((color & 0x0000FF) >>  0) 
+                    ])
+                row += gapcol
+
+            for _ in range(smac):
+                _ = fault_map.write(row) 
+            _ = fault_map.write(gaprow)
+
+
         if self.conf.sparsity_support is True:
             sparse_report_name = self.top_path + '/SPARSE_REPORT.csv'
             sparse_report = open(sparse_report_name, 'w')
@@ -266,6 +303,7 @@ class simulator:
         compute_report.close()
         bandwidth_report.close()
         detail_report.close()
+        fault_map.close()
         time_report.close()
         if self.conf.sparsity_support is True:
             sparse_report.close()

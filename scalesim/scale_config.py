@@ -23,6 +23,7 @@ class scale_config:
 
         self.array_rows = 4
         self.array_cols = 4
+        self.dead_pes = [] # only used for visualization of dead PEs
         self.dead_row_index = []
         self.dead_col_index = []
         self.ifmap_sz_kb = 256
@@ -133,6 +134,7 @@ class scale_config:
                 for _ in range(n_defects):
                     self.dead_col_index.append(floor(x))
                     self.dead_row_index.append(floor(y))
+                    self.dead_pes.append([floor(x), floor(y)])
                     x += cos(theta)
                     y += sin(theta)
                 self.dead_row_index = list(set(self.dead_row_index))
@@ -149,6 +151,9 @@ class scale_config:
 
                 self.dead_row_index = list(range(y0, y0 + h))
                 self.dead_col_index = list(range(x0, x0 + w))
+                for x in range(x0, x0 + w):
+                    for y in range(y0, y0 + h):
+                        self.dead_pes.append([y, x])
 
             # defects appear as far apart from each other as possible
             elif defect_method == 'uniform':
@@ -159,6 +164,7 @@ class scale_config:
                     print('row=', victim)
                     self.dead_row_index.append(row)
                     self.dead_col_index.append(col)
+                    self.dead_pes.append([col, row])
                 self.dead_row_index = sorted(list(set(self.dead_row_index)))
                 self.dead_col_index = sorted(list(set(self.dead_col_index)))
 
