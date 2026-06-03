@@ -230,9 +230,9 @@ class systolic_compute_ws:
         self.create_ifmap_demand_mat()
         self.create_filter_demand_mat()
         self.create_ofmap_demand_mat()   
-        print(self.ifmap_demand_matrix.shape)
-        print(self.filter_demand_matrix.shape)
-        print(self.ofmap_demand_matrix.shape)
+        # print(self.ifmap_demand_matrix.shape)
+        # print(self.filter_demand_matrix.shape)
+        # print(self.ofmap_demand_matrix.shape)
         assert self.ifmap_demand_matrix.shape[0] == self.filter_demand_matrix.shape[0], \
                'IFMAP and Filter demands out of sync'
         assert self.ofmap_demand_matrix.shape[0] == self.filter_demand_matrix.shape[0], \

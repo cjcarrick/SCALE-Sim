@@ -6,6 +6,7 @@ parameters.
 import configparser as cp
 from math import ceil, floor, sin, cos
 import numpy as np
+import random
 
 
 class scale_config:
@@ -145,7 +146,7 @@ class scale_config:
                 # upper left corner of a square
                 w = min(self.array_cols, ceil(n_defects ** 0.5))
                 h = ceil(n_defects / w)
-                print('w=', w, 'h=', h, 'd=', n_defects)
+                # print('w=', w, 'h=', h, 'd=', n_defects)
                 x0 = floor(np.random.random() * (self.array_cols - w))
                 y0 = floor(np.random.random() * (self.array_rows - h))
 
@@ -153,26 +154,46 @@ class scale_config:
                 self.dead_col_index = list(range(x0, x0 + w))
                 for x in range(x0, x0 + w):
                     for y in range(y0, y0 + h):
-                        self.dead_pes.append([y, x])
+                        self.dead_pes.append([x, y])
 
             # defects appear as far apart from each other as possible
             elif defect_method == 'uniform':
                 d = (self.array_rows * self.array_cols) // n_defects
                 for victim in range(d, self.array_rows * self.array_cols, d):
-                    row = victim // self.array_rows
+                    row = victim // self.array_cols
                     col = victim % self.array_cols
-                    print('row=', victim)
+                    # print('row=', victim)
                     self.dead_row_index.append(row)
                     self.dead_col_index.append(col)
                     self.dead_pes.append([col, row])
                 self.dead_row_index = sorted(list(set(self.dead_row_index)))
                 self.dead_col_index = sorted(list(set(self.dead_col_index)))
+            
+            elif defect_method == 'anywhere':
+                self.dead_pes = random.sample([[c, r] for c in range(self.array_cols) for r in range(self.array_rows)], k=n_defects)
 
             else:
                 print("ERROR: Invalid DefectMethod. Expected one of ",
                       ['explicit', 'block', 'uniform', 'line'])
                 print('Exiting')
                 exit()
+            
+            faultmethod = config.get(section, 'ResolutionMethod', fallback='both')
+            if faultmethod == 'row':
+                deadrows = set([loc[1] for loc in self.dead_pes])
+                deadcols = []
+            elif faultmethod == 'column':
+                deadrows = []
+                deadcols = set([loc[0] for loc in self.dead_pes])
+            elif faultmethod == 'random':
+                row_or_col = np.random.choice([True, False], len(self.dead_pes))
+                deadrows = set([loc[1] for loc, r in zip(self.dead_pes, row_or_col) if r])
+                deadcols = set([loc[0] for loc, r in zip(self.dead_pes, row_or_col) if not r])
+            elif faultmethod == 'both':
+                deadrows = set([loc[1] for loc in self.dead_pes])
+                deadcols = set([loc[0] for loc in self.dead_pes])
+            self.dead_row_index = deadrows
+            self.dead_col_index = deadcols
 
 
 
